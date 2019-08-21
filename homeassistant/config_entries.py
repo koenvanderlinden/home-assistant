@@ -522,7 +522,9 @@ class ConfigEntries:
         return await self.async_setup(entry_id)
 
     @callback
-    def async_update_entry(self, entry, *, data=_UNDEF, options=_UNDEF):
+    def async_update_entry(
+        self, entry, *, data=_UNDEF, options=_UNDEF, system_options=_UNDEF
+    ):
         """Update a config entry."""
         if data is not _UNDEF:
             entry.data = data
@@ -530,10 +532,12 @@ class ConfigEntries:
         if options is not _UNDEF:
             entry.options = options
 
-        if data is not _UNDEF or options is not _UNDEF:
-            for listener_ref in entry.update_listeners:
-                listener = listener_ref()
-                self.hass.async_create_task(listener(self.hass, entry))
+        if system_options is not _UNDEF:
+            entry.system_options.update(**system_options)
+
+        for listener_ref in entry.update_listeners:
+            listener = listener_ref()
+            self.hass.async_create_task(listener(self.hass, entry))
 
         self._async_schedule_save()
 
@@ -665,6 +669,12 @@ async def _old_conf_migrator(old_config):
 
 class ConfigFlow(data_entry_flow.FlowHandler):
     """Base class for config flows with some helpers."""
+
+    def __init_subclass__(cls, domain=None, **kwargs):
+        """Initialize a subclass, register if possible."""
+        super().__init_subclass__(**kwargs)  # type: ignore
+        if domain is not None:
+            HANDLERS.register(domain)(cls)
 
     CONNECTION_CLASS = CONN_CLASS_UNKNOWN
 
